@@ -1,47 +1,35 @@
-from src.data_loader import download_data
-from src.indicators import add_indicators
-from src.feature_engineering import create_features
-from src.train_model import train_model
-from src.backtest import run_backtest
-from src.evaluate import evaluate_strategy
-from src.utils import plot_equity_curve
+import yfinance as yf
+from features.feature_engineering import create_features
+from risk.volatility_model import VolatilityModel
+from backtesting.strategy import apply_risk_filter
 
-def main():
+# Load data
+data = yf.download("AAPL", start="2022-01-01")
 
-    # Step 1 — Download data
-    data = download_data()
+# Features
+data = create_features(data)
 
-    # Step 2 — Indicators
-    data = add_indicators(data)
+features = ['Lag_1','Lag_2','Momentum','Rolling_STD']
+X = data[features]
+y_vol = data['Volatility']
 
-    # Step 3 — Features
-    data = create_features(data)
+# Split
+split = int(len(X)*0.8)
+X_train, X_test = X[:split], X[split:]
+y_train, y_test = y_vol[:split], y_vol[split:]
 
-    # Save processed data
-    data.to_csv(
-        "data/processed/processed_data.csv"
-    )
+# Train volatility model
+vol_model = VolatilityModel()
+vol_model.train(X_train, y_train)
 
-    # Step 4 — Train model
-    model, X_test = train_model(data)
+# Predict volatility
+vol_pred = vol_model.predict(X_test)
 
-    # Step 5 — Backtest
-    results = run_backtest(
-        data,
-        model,
-        X_test
-    )
+# Dummy signals (from your ML model)
+signals = [1 if i % 2 == 0 else -1 for i in range(len(vol_pred))]
 
-    # Step 6 — Evaluate
-    evaluate_strategy(results)
+# Apply risk filter
+threshold = y_vol.mean()
+final_signals = apply_risk_filter(signals, vol_pred, threshold)
 
-    # Step 7 — Plot
-    plot_equity_curve(results)
-
-    # Save predictions
-    results.to_csv(
-        "outputs/predictions.csv"
-    )
-
-if __name__ == "__main__":
-    main()
+print(final_signals[:10])
