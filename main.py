@@ -3,6 +3,25 @@ from features.feature_engineering import create_features
 from risk.volatility_model import VolatilityModel
 from backtesting.strategy import apply_risk_filter
 
+import pandas as pd
+
+assets = ["AAPL", "MSFT", "GOOG"]
+
+data = pd.DataFrame()
+
+for asset in assets:
+    df = yf.download(asset, start="2022-01-01")['Close']
+    data[asset] = df
+
+returns = data.pct_change().dropna()
+
+weights, ret, risk = optimize_portfolio(returns)
+
+print("Weights:", weights)
+print("Return:", ret)
+print("Risk:", risk)
+
+
 # Load data
 data = yf.download("AAPL", start="2022-01-01")
 
