@@ -77,3 +77,48 @@ threshold = y_vol.mean()
 final_signals = apply_risk_filter(signals, vol_pred, threshold)
 
 print(final_signals[:10])
+
+returns = data['Target'][split:].reset_index(drop=True)
+
+import pandas as pd
+signals = pd.Series(final_signals)
+
+strategy_returns = returns * signals
+
+
+cost = 0.001
+strategy_returns = strategy_returns - (cost * (signals != 0))
+
+
+import numpy as np
+
+equity_curve = (1 + strategy_returns).cumprod()
+
+
+import matplotlib.pyplot as plt
+
+plt.plot(equity_curve, label="Strategy")
+plt.title("Equity Curve")
+plt.legend()
+plt.show()
+
+
+total_return = equity_curve.iloc[-1] - 1
+sharpe = np.mean(strategy_returns) / np.std(strategy_returns)
+
+rolling_max = equity_curve.cummax()
+drawdown = equity_curve / rolling_max - 1
+max_drawdown = drawdown.min()
+
+print("Return:", total_return)
+print("Sharpe:", sharpe)
+print("Max Drawdown:", max_drawdown)
+
+
+
+buy_hold = (1 + returns).cumprod()
+
+plt.plot(equity_curve, label="Strategy")
+plt.plot(buy_hold, label="Buy & Hold")
+plt.legend()
+plt.show()
