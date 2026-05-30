@@ -1,7 +1,7 @@
 import yfinance as yf
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-
+from rl_agents.train_rl import train_agent
 from features.feature_engineering import create_features
 from risk.volatility_model import VolatilityModel
 from backtesting.strategy import apply_risk_filter
@@ -122,3 +122,10 @@ plt.plot(equity_curve, label="Strategy")
 plt.plot(buy_hold, label="Buy & Hold")
 plt.legend()
 plt.show()
+
+
+# RL AGENT TRAINING
+
+rl_model = train_agent(data)
+
+print("RL Agent Training Completed")
