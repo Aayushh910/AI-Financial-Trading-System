@@ -5,18 +5,19 @@ import numpy as np
 class TradingEnv(gym.Env):
 
     def __init__(self, data):
-        super(TradingEnv, self).__init__()
+        super().__init__()
 
         self.data = data.reset_index(drop=True)
-        self.current_step = 0
 
-        # Actions:
-        # 0 = Hold
-        # 1 = Buy
-        # 2 = Sell
+        self.initial_balance = 10000
+        self.balance = self.initial_balance
+
+        self.current_step = 0
+        self.position = 0
+
+        # 0 = Hold, 1 = Buy, 2 = Sell
         self.action_space = spaces.Discrete(3)
 
-        # Observation Space
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
@@ -28,33 +29,41 @@ class TradingEnv(gym.Env):
         super().reset(seed=seed)
 
         self.current_step = 0
+        self.balance = self.initial_balance
+        self.position = 0
 
         return self._next_observation(), {}
 
     def _next_observation(self):
 
-        obs = np.array([
+        return np.array([
             self.data['Lag_1'].iloc[self.current_step],
             self.data['Lag_2'].iloc[self.current_step],
             self.data['Momentum'].iloc[self.current_step],
             self.data['Rolling_STD'].iloc[self.current_step]
         ], dtype=np.float32)
 
-        return obs
-
     def step(self, action):
 
-        reward = self.data['Target'].iloc[self.current_step]
+        current_return = self.data['Target'].iloc[self.current_step]
 
-        # Basic reward logic
-        if action == 1:  # Buy
-            reward = reward
+        reward = 0
 
-        elif action == 2:  # Sell
-            reward = -reward
+        # Buy
+        if action == 1:
+            self.position = 1
+            reward = current_return
 
-        else:  # Hold
-            reward = 0
+        # Sell
+        elif action == 2:
+            self.position = -1
+            reward = -current_return
+
+        # Hold
+        else:
+            reward = -0.0001
+
+        self.balance *= (1 + reward)
 
         self.current_step += 1
 
@@ -63,4 +72,9 @@ class TradingEnv(gym.Env):
 
         obs = self._next_observation()
 
-        return obs, reward, terminated, truncated, {}
+        info = {
+            "balance": self.balance,
+            "position": self.position
+        }
+
+        return obs, reward, terminated, truncated, info

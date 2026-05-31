@@ -126,6 +126,8 @@ plt.show()
 
 # RL AGENT TRAINING
 
+from rl_agents.train_rl import train_agent
+
 rl_model = train_agent(data)
 
 print("RL Agent Training Completed")
