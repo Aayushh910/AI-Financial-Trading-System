@@ -16,4 +16,7 @@ def train_agent(data):
 
     model.learn(total_timesteps=20000)
 
+    # Save trained model
+    model.save("ppo_trading_agent")
+
     return model
