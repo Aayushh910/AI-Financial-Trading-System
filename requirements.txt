@@ -1,8 +1,55 @@
+# Core Data Processing
 pandas
 numpy
+
+# Visualization
 matplotlib
+seaborn
+
+# Machine Learning
 scikit-learn
 xgboost
+lightgbm
+catboost
+
+# Financial Data
 yfinance
 joblib
 vectorbt
+
+# Hyperparameter Optimization
+optuna
+
+# Deep Learning
+tensorflow
+torch
+torchvision
+torchaudio
+
+# Time-Series / Forecasting
+pytorch-forecasting
+
+# Reinforcement Learning
+gymnasium
+stable-baselines3
+shimmy
+
+# Utilities
+joblib
+scipy
+statsmodels
+ta
+
+# Jupyter / Notebook
+notebook
+ipykernel
+
+# Progress Bars / Logging
+tqdm
+
+# Optional API / Deployment
+fastapi
+uvicorn
+
+# Optional Environment Management
+python-dotenv

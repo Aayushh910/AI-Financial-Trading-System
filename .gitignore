@@ -1,2 +1,7 @@
 __pycache__/
 *.pyc
+# Virtual Environment
+venv/
+.venv/
+ppo_trading_agent.zip
+
