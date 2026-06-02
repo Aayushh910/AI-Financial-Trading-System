@@ -53,3 +53,4 @@ uvicorn
 
 # Optional Environment Management
 python-dotenv
+ta

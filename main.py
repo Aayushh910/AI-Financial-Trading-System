@@ -27,14 +27,36 @@ print("Risk:", risk)
 
 # 2. LOAD + FEATURE ENGINEERING
 
-data = yf.download("AAPL", start="2022-01-01")
+data = yf.download(
+    "AAPL",
+    start="2022-01-01",
+    auto_adjust=False
+)
+
+# Fix MultiIndex issue from yfinance
+if isinstance(data.columns, pd.MultiIndex):
+    data.columns = data.columns.get_level_values(0)
+
+# Feature Engineering
 data = create_features(data)
 
-features = ['Lag_1','Lag_2','Momentum','Rolling_STD']
-X = data[features]
 
-# ✅ Correct target (NOT volatility)
-y = data['Target']  # you created this in Day 3
+features = [
+    'Lag_1',
+    'Lag_2',
+    'Momentum',
+    'Rolling_STD',
+    'RSI',
+    'MACD',
+    'MACD_SIGNAL',
+    'BB_HIGH',
+    'BB_LOW',
+    'ATR',
+    'Volume_Change'
+]
+
+X = data[features]
+y = data['Target'] 
 
 # 3. TRAIN-TEST SPLIT
 
