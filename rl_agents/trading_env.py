@@ -2,6 +2,7 @@ import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
 
+
 class TradingEnv(gym.Env):
 
     def __init__(self, data):
@@ -9,110 +10,138 @@ class TradingEnv(gym.Env):
 
         self.data = data.reset_index(drop=True)
 
-        # Portfolio Settings
         self.initial_balance = 10000
-        self.balance = self.initial_balance
 
-        self.current_step = 0
-        self.position = 0
-
-        # Actions:
-        # 0 = Hold
-        # 1 = Buy
-        # 2 = Sell
         self.action_space = spaces.Discrete(3)
 
-        # Observation Space
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(11,),
+            shape=(21,),
             dtype=np.float32
         )
 
-    # Reset Environment
+        self.reset()
+
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        self.current_step = 0
         self.balance = self.initial_balance
+        self.max_balance = self.initial_balance
+
+        self.current_step = 0
+
         self.position = 0
+        self.entry_price = 0
 
         return self._next_observation(), {}
 
-    # Observation Function
     def _next_observation(self):
 
+        row = self.data.iloc[self.current_step]
+
         obs = np.array([
-
-            # Basic Features
-            self.data['Lag_1'].iloc[self.current_step],
-            self.data['Lag_2'].iloc[self.current_step],
-            self.data['Momentum'].iloc[self.current_step],
-            self.data['Rolling_STD'].iloc[self.current_step],
-
-            # RSI
-            self.data['RSI'].iloc[self.current_step],
-
-            # MACD
-            self.data['MACD'].iloc[self.current_step],
-            self.data['MACD_SIGNAL'].iloc[self.current_step],
-
-            # Bollinger Bands
-            self.data['BB_HIGH'].iloc[self.current_step],
-            self.data['BB_LOW'].iloc[self.current_step],
-
-            # ATR
-            self.data['ATR'].iloc[self.current_step],
-
-            # Volume Feature
-            self.data['Volume_Change'].iloc[self.current_step]
-
+            row['Lag_1'],
+            row['Lag_2'],
+            row['Lag_3'],
+            row['Lag_5'],
+            row['Momentum'],
+            row['Rolling_STD'],
+            row['RSI'],
+            row['MACD'],
+            row['MACD_SIGNAL'],
+            row['BB_HIGH'],
+            row['BB_LOW'],
+            row['ATR'],
+            row['Volume_Change'],
+            row['EMA_10'],
+            row['EMA_20'],
+            row['EMA_50'],
+            row['SMA_10'],
+            row['SMA_20'],
+            row['SMA_50'],
+            row['Price_Range'],
+            row['Volume_MA']
         ], dtype=np.float32)
 
         return obs
 
-    # Step Function
     def step(self, action):
 
-        current_return = self.data['Target'].iloc[self.current_step]
+        current_price = self.data['Close'].iloc[self.current_step]
 
         reward = 0
 
-        # Transaction Cost
-        transaction_cost = 0.001
+        transaction_cost = 0.0005
 
-        # BUY
+        stop_loss = 0.03
+        take_profit = 0.06
+
         if action == 1:
-            self.position = 1
-            reward = current_return - transaction_cost
 
-        # SELL
+            if self.position == 0:
+                self.position = 1
+                self.entry_price = current_price
+                reward -= transaction_cost
+
         elif action == 2:
-            self.position = -1
-            reward = -current_return - transaction_cost
 
-        # HOLD
-        else:
-            reward = -0.0001
+            if self.position == 0:
+                self.position = -1
+                self.entry_price = current_price
+                reward -= transaction_cost
 
-        # Update Portfolio Balance
-        self.balance *= (1 + reward)
+        if self.position == 1:
 
-        # Move to next timestep
+            pnl = (
+                current_price - self.entry_price
+            ) / self.entry_price
+
+            reward += pnl
+
+            if pnl <= -stop_loss or pnl >= take_profit:
+                self.balance *= (1 + pnl)
+                self.position = 0
+
+        elif self.position == -1:
+
+            pnl = (
+                self.entry_price - current_price
+            ) / self.entry_price
+
+            reward += pnl
+
+            if pnl <= -stop_loss or pnl >= take_profit:
+                self.balance *= (1 + pnl)
+                self.position = 0
+
+        reward = np.clip(reward, -1, 1)
+
+        self.max_balance = max(
+            self.max_balance,
+            self.balance
+        )
+
         self.current_step += 1
 
-        # Episode End
-        terminated = self.current_step >= len(self.data) - 1
+        terminated = (
+            self.current_step >= len(self.data) - 1
+        )
+
         truncated = False
 
-        # Next Observation
         obs = self._next_observation()
 
-        # Extra Info
         info = {
             "balance": self.balance,
-            "position": self.position
+            "position": self.position,
+            "max_balance": self.max_balance
         }
 
-        return obs, reward, terminated, truncated, info
+        return (
+            obs,
+            reward,
+            terminated,
+            truncated,
+            info
+        )

@@ -1,10 +1,13 @@
+import os
+import joblib
 import yfinance as yf
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import joblib
 
 from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error, mean_squared_error
+
 from xgboost import XGBRegressor
 
 from features.feature_engineering import create_features
@@ -16,14 +19,20 @@ from rl_agents.train_rl import train_agent
 from rl_agents.evaluate_rl import evaluate_agent
 
 
+# ==========================
 # Portfolio Optimization
+# ==========================
 
 assets = ["AAPL", "MSFT", "GOOG"]
 
 data_portfolio = pd.DataFrame()
 
 for asset in assets:
-    df = yf.download(asset, start="2022-01-01")["Close"]
+    df = yf.download(
+        asset,
+        start="2015-01-01"
+    )["Close"]
+
     data_portfolio[asset] = df
 
 returns = data_portfolio.pct_change().dropna()
@@ -35,11 +44,13 @@ print("Return:", ret)
 print("Risk:", risk)
 
 
-# Data Loading
+# ==========================
+# Load Data
+# ==========================
 
 data = yf.download(
     "AAPL",
-    start="2022-01-01",
+    start="2015-01-01",
     auto_adjust=False
 )
 
@@ -49,11 +60,15 @@ if isinstance(data.columns, pd.MultiIndex):
 data = create_features(data)
 
 
+# ==========================
 # Features
+# ==========================
 
 features = [
     "Lag_1",
     "Lag_2",
+    "Lag_3",
+    "Lag_5",
     "Momentum",
     "Rolling_STD",
     "RSI",
@@ -62,14 +77,24 @@ features = [
     "BB_HIGH",
     "BB_LOW",
     "ATR",
-    "Volume_Change"
+    "Volume_Change",
+    "EMA_10",
+    "EMA_20",
+    "EMA_50",
+    "SMA_10",
+    "SMA_20",
+    "SMA_50",
+    "Price_Range",
+    "Volume_MA"
 ]
 
 X = data[features]
 y = data["Target"]
 
 
-# Train/Test Split
+# ==========================
+# Train Test Split
+# ==========================
 
 split = int(len(X) * 0.8)
 
@@ -80,35 +105,79 @@ y_train = y[:split]
 y_test = y[split:]
 
 
-# Feature Scaling
+# ==========================
+# Scaling
+# ==========================
 
 scaler = StandardScaler()
 
 X_train = scaler.fit_transform(X_train)
 X_test = scaler.transform(X_test)
 
-X_train = pd.DataFrame(X_train, columns=features)
-X_test = pd.DataFrame(X_test, columns=features)
+X_train = pd.DataFrame(
+    X_train,
+    columns=features
+)
 
-joblib.dump(scaler, "scaler.pkl")
+X_test = pd.DataFrame(
+    X_test,
+    columns=features
+)
+
+os.makedirs("saved_models", exist_ok=True)
+
+joblib.dump(
+    scaler,
+    "saved_models/scaler.pkl"
+)
 
 
+# ==========================
 # XGBoost Model
+# ==========================
 
 model = XGBRegressor(
-    n_estimators=200,
-    max_depth=6,
-    learning_rate=0.05,
-    objective="reg:squarederror",
-    random_state=42
+    n_estimators=500,
+    max_depth=4,
+    learning_rate=0.03,
+    subsample=0.8,
+    colsample_bytree=0.8,
+    random_state=42,
+    objective="reg:squarederror"
 )
 
 model.fit(X_train, y_train)
 
 preds = model.predict(X_test)
 
+joblib.dump(
+    model,
+    "saved_models/xgb_model.pkl"
+)
 
+
+# ==========================
+# Metrics
+# ==========================
+
+mae = mean_absolute_error(
+    y_test,
+    preds
+)
+
+mse = mean_squared_error(
+    y_test,
+    preds
+)
+
+print("\n===== Model Metrics =====")
+print("MAE:", mae)
+print("MSE:", mse)
+
+
+# ==========================
 # Feature Importance
+# ==========================
 
 importance = pd.DataFrame({
     "Feature": features,
@@ -120,36 +189,57 @@ importance = importance.sort_values(
     ascending=False
 )
 
-print("\nFeature Importance\n")
+print("\n===== Feature Importance =====")
 print(importance)
 
-plt.figure(figsize=(10, 5))
+plt.figure(figsize=(12, 6))
+
 plt.bar(
     importance["Feature"],
     importance["Importance"]
 )
+
 plt.xticks(rotation=45)
-plt.title("XGBoost Feature Importance")
+
+plt.title(
+    "XGBoost Feature Importance"
+)
+
 plt.tight_layout()
 plt.show()
 
 
+# ==========================
 # Signal Generation
+# ==========================
 
-threshold = 0.0002
+buy_threshold = np.percentile(
+    preds,
+    75
+)
+
+sell_threshold = np.percentile(
+    preds,
+    25
+)
 
 signals = []
 
 for p in preds:
-    if p > threshold:
+
+    if p > buy_threshold:
         signals.append(1)
-    elif p < -threshold:
+
+    elif p < sell_threshold:
         signals.append(-1)
+
     else:
         signals.append(0)
 
 
+# ==========================
 # Volatility Model
+# ==========================
 
 y_vol = data["Volatility"]
 
@@ -160,12 +250,18 @@ vol_model.train(
     y_vol[:split]
 )
 
-vol_pred = vol_model.predict(X_test)
+vol_pred = vol_model.predict(
+    X_test
+)
 
 
+# ==========================
 # Risk Filter
+# ==========================
 
-vol_threshold = y_vol.mean()
+vol_threshold = y_vol.quantile(
+    0.60
+)
 
 final_signals = apply_risk_filter(
     signals,
@@ -174,16 +270,22 @@ final_signals = apply_risk_filter(
 )
 
 print("\nSignals:")
-print(final_signals[:10])
+print(final_signals[:20])
 
 
+# ==========================
 # Backtesting
+# ==========================
 
-returns = data["Target"][split:].reset_index(drop=True)
+returns = data["Target"][split:].reset_index(
+    drop=True
+)
 
 signals = pd.Series(final_signals)
 
-strategy_returns = returns * signals
+strategy_returns = (
+    returns * signals
+)
 
 transaction_cost = 0.001
 
@@ -196,30 +298,40 @@ equity_curve = (
     1 + strategy_returns
 ).cumprod()
 
-plt.figure(figsize=(8, 5))
+plt.figure(figsize=(10, 5))
+
 plt.plot(
     equity_curve,
     label="Strategy"
 )
+
 plt.title("Equity Curve")
+
 plt.legend()
+
 plt.show()
 
 
-total_return = equity_curve.iloc[-1] - 1
+total_return = (
+    equity_curve.iloc[-1] - 1
+)
 
 sharpe = (
     np.mean(strategy_returns)
-    / np.std(strategy_returns)
+    / (np.std(strategy_returns) + 1e-8)
 )
 
-rolling_max = equity_curve.cummax()
+rolling_max = (
+    equity_curve.cummax()
+)
 
 drawdown = (
     equity_curve / rolling_max
 ) - 1
 
-max_drawdown = drawdown.min()
+max_drawdown = (
+    drawdown.min()
+)
 
 print("\n===== Backtest Results =====")
 print("Return:", total_return)
@@ -227,13 +339,16 @@ print("Sharpe:", sharpe)
 print("Max Drawdown:", max_drawdown)
 
 
+# ==========================
 # Buy & Hold Comparison
+# ==========================
 
 buy_hold = (
     1 + returns
 ).cumprod()
 
-plt.figure(figsize=(8, 5))
+plt.figure(figsize=(10, 5))
+
 plt.plot(
     equity_curve,
     label="Strategy"
@@ -244,18 +359,28 @@ plt.plot(
     label="Buy & Hold"
 )
 
+plt.title(
+    "Strategy vs Buy & Hold"
+)
+
 plt.legend()
-plt.title("Strategy vs Buy & Hold")
+
 plt.show()
 
 
+# ==========================
 # RL Training
+# ==========================
 
 rl_model = train_agent(data)
 
-print("\nRL Agent Training Completed")
+print(
+    "\nRL Agent Training Completed"
+)
 
 
+# ==========================
 # RL Evaluation
+# ==========================
 
 evaluate_agent(data)
