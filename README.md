@@ -1,424 +1,182 @@
-# AI Financial Trading System
+# 🚀 AI Financial Trading System
 
-An end-to-end AI-powered algorithmic trading platform for **market prediction, risk analysis, portfolio optimization, and reinforcement learning-based trading**.
-
-This project combines:
-
-- Time-Series Forecasting
-- Reinforcement Learning
-- Bayesian Optimization
-- Quantitative Finance
-- Real-Time Data Processing
-- Deep Learning for Financial Markets
+An AI-powered trading system that combines **Machine Learning, Portfolio Optimization, Risk Management, Backtesting, and Reinforcement Learning** to analyze market data and generate intelligent trading decisions.
 
 ---
 
-# 📌 Features
+## ✨ Features
 
-## 1. Market Prediction Engine
-
-Predict future stock/crypto/forex prices using:
-
-- LSTM
-- GRU
-- Transformer Models
-- Temporal Fusion Transformer (TFT)
-- XGBoost for tabular features
-
-Supports:
-
-- OHLCV data
-- Technical indicators
-- Sentiment analysis
-- Multi-timeframe forecasting
+### 📈 Market Prediction
+- XGBoost-based return prediction
+- Technical Indicator Engineering:
+  - RSI (Relative Strength Index)
+  - MACD (Moving Average Convergence Divergence)
+  - Bollinger Bands
+  - ATR (Average True Range)
+  - EMA (Exponential Moving Average)
+  - SMA (Simple Moving Average)
+  - Momentum Indicators
+  - Volume-Based Features
 
 ---
 
-## 2. Risk Analysis Module
-
-Evaluate portfolio and trade risks using:
-
-- Value at Risk (VaR)
-- Conditional VaR
-- Sharpe Ratio
-- Sortino Ratio
-- Maximum Drawdown
-- Monte Carlo Simulations
+### 💼 Portfolio Optimization
+- Multi-asset portfolio analysis
+- Portfolio allocation for:
+  - AAPL
+  - MSFT
+  - GOOG
+- Risk-return optimization
+- Portfolio performance evaluation
 
 ---
 
-## 3. Portfolio Optimization
-
-Optimize asset allocation using:
-
-- Modern Portfolio Theory (MPT)
-- Black-Litterman Model
-- Mean-Variance Optimization
-- Risk Parity
-- Bayesian Optimization
+### 🛡️ Risk Management
+- Volatility prediction
+- Risk filtering mechanisms
+- Transaction cost simulation
+- Risk-aware trading decisions
 
 ---
 
-## 4. Reinforcement Learning Trading Agent
+### 📊 Backtesting Engine
+- Buy / Sell / Hold signal generation
+- Strategy performance evaluation
+- Equity curve generation
+- Buy-and-Hold comparison
 
-Train autonomous trading agents using:
+---
 
-- Deep Q Networks (DQN)
+### 🤖 Reinforcement Learning
 - PPO (Proximal Policy Optimization)
-- A2C
-- SAC
-- Multi-Agent RL
-
-Actions:
-
-- Buy
-- Sell
-- Hold
-- Position sizing
+- Custom Gymnasium Trading Environment
+- Autonomous trading agent
+- Reinforcement learning-based strategy improvement
 
 ---
 
-# ⚠️ Challenges
-
-Financial markets are difficult because:
-
-- Market data is noisy
-- Overfitting happens easily
-- Regimes change constantly
-- Latency matters
-- Data leakage destroys accuracy
-- Backtesting bias gives false profits
-
-This project focuses heavily on:
-
-- Robust validation
-- Walk-forward testing
-- Risk management
-- Realistic simulation
-
----
-
-# 🏗️ System Architecture
+## 🏗️ Project Workflow
 
 ```text
-                ┌──────────────────┐
-                │ Market Data APIs │
-                └────────┬─────────┘
-                         │
-                         ▼
-              ┌────────────────────┐
-              │ Data Ingestion     │
-              │ Cleaning Pipeline  │
-              └────────┬───────────┘
-                       │
-         ┌─────────────┴─────────────┐
-         ▼                           ▼
-┌──────────────────┐      ┌──────────────────┐
-│ Feature Engine   │      │ Sentiment Engine │
-└────────┬─────────┘      └────────┬─────────┘
-         ▼                         ▼
-      ┌─────────────────────────────────┐
-      │ Prediction Models               │
-      │ LSTM / Transformer / XGBoost    │
-      └──────────────┬──────────────────┘
-                     ▼
-          ┌────────────────────┐
-          │ RL Trading Agent   │
-          └─────────┬──────────┘
-                    ▼
-        ┌────────────────────────┐
-        │ Portfolio Optimization │
-        └─────────┬──────────────┘
-                  ▼
-         ┌──────────────────────┐
-         │ Risk Management      │
-         └─────────┬────────────┘
-                   ▼
-          ┌────────────────────┐
-          │ Trade Execution    │
-          └────────────────────┘
+Market Data
+    ↓
+Feature Engineering
+    ↓
+XGBoost Prediction
+    ↓
+Signal Generation
+    ↓
+Risk Filter
+    ↓
+Backtesting
+    ↓
+Portfolio Optimization
+    ↓
+PPO RL Agent
+    ↓
+Dashboard Visualization
 ```
 
 ---
 
-# 🧠 Tech Stack
+## 🛠️ Tech Stack
 
-## Languages
-
-- Python
-- SQL
-
----
-
-## Machine Learning
-
-- TensorFlow
-- PyTorch
-- Scikit-learn
+### 🧠 Machine Learning
+- Scikit-Learn
 - XGBoost
-- LightGBM
+- Optuna
 
----
-
-## Reinforcement Learning
-
+### 🤖 Reinforcement Learning
 - Stable-Baselines3
-- Ray RLlib
 - Gymnasium
 
----
-
-## Data Processing
-
+### 📊 Data Analysis
 - Pandas
 - NumPy
-- Dask
-- Polars
+- TA (Technical Analysis Library)
 
----
-
-## Visualization
-
-- Plotly
+### 📉 Visualization
 - Matplotlib
 - Streamlit
-- Dash
+
+### 🌐 Data Source
+- Yahoo Finance (yFinance)
 
 ---
 
-# 📂 Project Structure
+## 📂 Project Structure
 
-```bash
-AI-Trading-System/
+```text
+AI-Financial-Trading-System/
 │
-├── data/
-│   ├── raw/
-│   ├── processed/
-│   └── features/
-│
-├── models/
-│   ├── forecasting/
-│   ├── reinforcement_learning/
-│   └── optimization/
-│
-├── notebooks/
-│
-├── src/
-│   ├── data_pipeline/
-│   ├── feature_engineering/
-│   ├── prediction/
-│   ├── risk_management/
-│   ├── portfolio/
-│   ├── rl_agent/
-│   ├── backtesting/
-│   └── execution/
-│
-├── configs/
-├── tests/
+├── backtesting/
+├── config/
 ├── dashboard/
+├── data/
+├── features/
+├── models/
+├── outputs/
+├── risk/
+├── rl_agents/
+├── saved_models/
+│
+├── main.py
 ├── requirements.txt
 └── README.md
 ```
 
 ---
 
-# 📊 Data Sources
+## 📊 Generated Outputs
 
-Supported APIs:
-
-- Alpha Vantage
-- Yahoo Finance
-- Binance API
-- Polygon.io
-- Alpaca
-- Finnhub
-
-Alternative data:
-
-- News sentiment
-- Twitter sentiment
-- Reddit market sentiment
-- Macroeconomic indicators
-
----
-
-# 🔍 Feature Engineering
-
-Features include:
-
-## Technical Indicators
-
-- RSI
-- MACD
-- Bollinger Bands
-- ATR
-- EMA/SMA
-- VWAP
-
-## Statistical Features
-
-- Volatility
-- Returns
-- Z-score
-- Rolling correlations
-
-## Deep Features
-
-- Autoencoders
-- Latent embeddings
-- Transformer embeddings
-
----
-
-# 📈 Forecasting Models
-
-## LSTM Model
-
-Good for sequential time-series learning.
-
-```python
-model = Sequential([
-    LSTM(128, return_sequences=True),
-    Dropout(0.2),
-    LSTM(64),
-    Dense(1)
-])
-```
-
----
-
-## Transformer-Based Forecasting
-
-Advantages:
-
-- Long-range dependencies
-- Better attention modeling
-- Parallel training
-
----
-
-# 🤖 Reinforcement Learning Environment
-
-State Space:
-
-- Price history
-- Technical indicators
-- Current positions
-- Portfolio balance
-
-Action Space:
+### 📈 Charts
 
 ```text
-0 -> Hold
-1 -> Buy
-2 -> Sell
+outputs/charts/
+├── equity_curve.png
+├── feature_importance.png
+├── strategy_vs_buy_hold.png
+└── rl_equity_curve.png
 ```
 
-Reward Function:
+### 📋 Reports
 
 ```text
-Reward = Portfolio Return - Transaction Cost - Risk Penalty
+outputs/reports/
+└── metrics.txt
+```
+
+### 🔮 Predictions
+
+```text
+outputs/predictions/
+└── predictions.csv
 ```
 
 ---
 
-# 📉 Risk Management
+## ▶️ Installation & Usage
 
-Implemented protections:
-
-- Stop-loss
-- Take-profit
-- Dynamic position sizing
-- Volatility targeting
-- Circuit breakers
-
----
-
-# 🧪 Backtesting Framework
-
-Supports:
-
-- Walk-forward analysis
-- Slippage simulation
-- Transaction fees
-- Latency simulation
-- Multi-asset testing
-
-Metrics:
-
-- CAGR
-- Sharpe Ratio
-- Win Rate
-- Max Drawdown
-- Profit Factor
-
----
-
-# ⚡ Real-Time Trading
-
-Real-time pipeline includes:
-
-- Live websocket streaming
-- Real-time inference
-- Async event-driven execution
-- GPU acceleration
-
----
-
-# 🛠️ Installation
-
-## Clone Repository
+### 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/yourusername/AI-Trading-System.git
-cd AI-Trading-System
+git clone https://github.com/your-username/AI-Financial-Trading-System.git
+cd AI-Financial-Trading-System
 ```
 
----
-
-## Create Environment
-
-```bash
-python -m venv venv
-
-# Linux/Mac
-source venv/bin/activate
-
-# Windows
-venv\Scripts\activate
-```
-
----
-
-## Install Dependencies
+### 2️⃣ Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
----
-
-# ▶️ Running the Project
-
-## Train Prediction Model
+### 3️⃣ Run Complete Pipeline
 
 ```bash
-python src/prediction/train_lstm.py
+python main.py
 ```
 
-## Train RL Agent
-
-```bash
-python src/rl_agent/train_ppo.py
-```
-
-## Run Backtesting
-
-```bash
-python src/backtesting/run_backtest.py
-```
-
-## Launch Dashboard
+### 4️⃣ Launch Dashboard
 
 ```bash
 streamlit run dashboard/app.py
@@ -426,123 +184,62 @@ streamlit run dashboard/app.py
 
 ---
 
-# 📚 Machine Learning Concepts Used
+## 📌 Current Capabilities
 
-## Time-Series ML
-
-- Sequence modeling
-- Attention mechanisms
-- Feature lagging
-- Windowing
-
----
-
-## Reinforcement Learning
-
-- Exploration vs exploitation
-- Reward shaping
-- Policy optimization
-- Q-learning
+- ✅ Feature Engineering Pipeline
+- ✅ Technical Indicator Generation
+- ✅ XGBoost Prediction Model
+- ✅ Portfolio Optimization
+- ✅ Volatility-Based Risk Filtering
+- ✅ Backtesting Engine
+- ✅ PPO Reinforcement Learning Agent
+- ✅ Model Saving & Loading
+- ✅ Performance Reports
+- ✅ Streamlit Dashboard Structure
 
 ---
 
-## Bayesian Optimization
+## 🚀 Future Improvements
 
-Used for:
-
-- Hyperparameter tuning
-- Portfolio optimization
-- Risk-adjusted parameter search
-
-Libraries:
-
-- Optuna
-- Hyperopt
-- BayesianOptimization
+- Multi-stock prediction
+- Live market data integration
+- News sentiment analysis
+- Paper trading environment
+- Advanced portfolio optimization
+- Real-time dashboard updates
+- Improved RL reward engineering
+- Automated model retraining
 
 ---
 
-# 🚀 Future Improvements
+## 📊 Project Domains
 
-- High-frequency trading support
-- Multi-agent RL systems
-- Options trading strategies
-- Federated learning
-- Quantum portfolio optimization
-- Explainable AI for finance
-- Graph neural networks
+This project integrates concepts from:
 
----
-
-# 📌 Research Papers Inspiration
-
-- Attention Is All You Need
-- Deep Reinforcement Learning for Trading
-- Temporal Fusion Transformers
-- FinRL Papers
-- AlphaGo Reinforcement Learning Concepts
+- Artificial Intelligence
+- Machine Learning
+- Deep Learning
+- Reinforcement Learning
+- Quantitative Finance
+- Algorithmic Trading
+- Financial Data Analysis
 
 ---
 
-# 📜 Disclaimer
+## ⚠️ Disclaimer
 
-This project is for:
+This project is developed for **educational and research purposes only**.
 
-- Educational purposes
-- Research
-- Experimentation
-
-It is **NOT financial advice**.
-
-Trading involves substantial risk and may result in loss of capital.
+It does **not** constitute financial advice. Trading and investing involve risk, and past performance does not guarantee future results.
 
 ---
 
-# 🤝 Contribution
+## 👨‍💻 Author
 
-Contributions are welcome.
+- Aayush Savaliya 
+- Jeel Pipaliya
 
-You can help with:
-
-- New models
-- Better backtesting
-- Faster execution engines
-- Risk models
-- Data pipelines
-- RL environments
+If you found this project useful, consider giving it a ⭐ on GitHub.
 
 ---
-
-# ⭐ Recommended Learning Path
-
-1. Python for Finance
-2. Statistics & Probability
-3. Time-Series Forecasting
-4. Deep Learning
-5. Reinforcement Learning
-6. Quantitative Finance
-7. Portfolio Theory
-8. Real-Time Systems
-9. MLOps for Trading
-
----
-
-# 📬 Contact
-
-For collaboration or research discussions:
-
-- Open an issue
-- Submit pull requests
-- Share improvements
-
----
-
-# 🌟 Final Goal
-
-Build a production-grade autonomous AI trading ecosystem capable of:
-
-- Predicting markets
-- Managing risks
-- Optimizing portfolios
-- Learning dynamically from market behavior
-- Executing trades autonomously
+🩷 Happy Coding & Happy Learning!

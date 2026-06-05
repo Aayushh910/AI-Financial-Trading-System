@@ -1,7 +1,10 @@
+venv/
 __pycache__/
 *.pyc
-# Virtual Environment
-venv/
-.venv/
-ppo_trading_agent.zip
 
+saved_models/*.pkl
+saved_models/*.zip
+
+outputs/charts/*
+outputs/reports/*
+outputs/predictions/*

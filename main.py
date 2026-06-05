@@ -206,6 +206,12 @@ plt.title(
 )
 
 plt.tight_layout()
+
+plt.savefig(
+    "outputs/charts/feature_importance.png",
+    bbox_inches="tight"
+)
+
 plt.show()
 
 
@@ -308,7 +314,10 @@ plt.plot(
 plt.title("Equity Curve")
 
 plt.legend()
-
+plt.savefig(
+    "outputs/charts/equity_curve.png",
+    bbox_inches="tight"
+)
 plt.show()
 
 
@@ -364,7 +373,10 @@ plt.title(
 )
 
 plt.legend()
-
+plt.savefig(
+    "outputs/charts/strategy_vs_buy_hold.png",
+    bbox_inches="tight"
+)
 plt.show()
 
 

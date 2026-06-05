@@ -148,7 +148,8 @@ def evaluate_agent(data):
     plt.grid(True)
 
     plt.savefig(
-        "rl_equity_curve.png"
-    )
+    "outputs/charts/rl_equity_curve.png",
+    bbox_inches="tight"
+)
 
     plt.show()  
