@@ -8,3 +8,5 @@ saved_models/*.zip
 outputs/charts/*
 outputs/reports/*
 outputs/predictions/*
+
+ppo_trading_agent.zip

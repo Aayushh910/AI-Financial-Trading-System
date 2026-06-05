@@ -19,6 +19,11 @@ from rl_agents.train_rl import train_agent
 from rl_agents.evaluate_rl import evaluate_agent
 
 
+os.makedirs("outputs/charts", exist_ok=True)
+os.makedirs("outputs/reports", exist_ok=True)
+os.makedirs("outputs/predictions", exist_ok=True)
+os.makedirs("saved_models", exist_ok=True)
+
 # ==========================
 # Portfolio Optimization
 # ==========================
@@ -39,10 +44,19 @@ returns = data_portfolio.pct_change().dropna()
 
 weights, ret, risk = optimize_portfolio(returns)
 
+weights_df = pd.DataFrame({
+    "Asset": assets,
+    "Weight": weights
+})
+
+weights_df.to_csv(
+    "outputs/reports/portfolio_weights.csv",
+    index=False
+)
+
 print("Weights:", weights)
 print("Return:", ret)
 print("Risk:", risk)
-
 
 # ==========================
 # Load Data
@@ -150,6 +164,16 @@ model.fit(X_train, y_train)
 
 preds = model.predict(X_test)
 
+pred_df = pd.DataFrame({
+    "Actual": y_test.values,
+    "Predicted": preds
+})
+
+pred_df.to_csv(
+    "outputs/predictions/predictions.csv",
+    index=False
+)
+
 joblib.dump(
     model,
     "saved_models/xgb_model.pkl"
@@ -211,8 +235,8 @@ plt.savefig(
     "outputs/charts/feature_importance.png",
     bbox_inches="tight"
 )
-
 plt.show()
+plt.close()
 
 
 # ==========================
@@ -319,6 +343,7 @@ plt.savefig(
     bbox_inches="tight"
 )
 plt.show()
+plt.close()
 
 
 total_return = (
@@ -378,6 +403,7 @@ plt.savefig(
     bbox_inches="tight"
 )
 plt.show()
+plt.close()
 
 
 # ==========================
@@ -396,3 +422,22 @@ print(
 # ==========================
 
 evaluate_agent(data)
+
+with open(
+    "outputs/reports/metrics.txt",
+    "w"
+) as f:
+
+    f.write("===== MODEL =====\n")
+    f.write(f"MAE: {mae}\n")
+    f.write(f"MSE: {mse}\n\n")
+
+    f.write("===== BACKTEST =====\n")
+    f.write(f"Return: {total_return}\n")
+    f.write(f"Sharpe: {sharpe}\n")
+    f.write(f"Max Drawdown: {max_drawdown}\n\n")
+
+    f.write("===== PORTFOLIO =====\n")
+    f.write(f"Weights: {weights}\n")
+    f.write(f"Return: {ret}\n")
+    f.write(f"Risk: {risk}\n")
