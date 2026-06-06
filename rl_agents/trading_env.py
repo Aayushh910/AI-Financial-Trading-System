@@ -9,13 +9,8 @@ class TradingEnv(gym.Env):
         super().__init__()
 
         self.data = data.reset_index(drop=True)
-        self.initial_balance = 10000
-        self.cash = self.initial_balance
-        self.shares = 0
-        self.position = 0
 
-        self.portfolio_value = self.initial_balance
-        self.prev_portfolio_value = self.initial_balance
+        self.initial_balance = 10000
 
         self.action_space = spaces.Discrete(3)
 
@@ -31,47 +26,46 @@ class TradingEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
+        self.current_step = 0
+
         self.cash = self.initial_balance
         self.shares = 0
+
+        self.position = 0
+        self.entry_price = 0
 
         self.portfolio_value = self.initial_balance
         self.prev_portfolio_value = self.initial_balance
         self.max_balance = self.initial_balance
-
-        self.current_step = 0
-
-        self.position = 0
-        self.entry_price = 0
 
         return self._next_observation(), {}
 
     def _next_observation(self):
 
         row = self.data.iloc[self.current_step]
-        
 
         obs = np.array([
-            row['Lag_1'],
-            row['Lag_2'],
-            row['Lag_3'],
-            row['Lag_5'],
-            row['Momentum'],
-            row['Rolling_STD'],
-            row['RSI'],
-            row['MACD'],
-            row['MACD_SIGNAL'],
-            row['BB_HIGH'],
-            row['BB_LOW'],
-            row['ATR'],
-            row['Volume_Change'],
-            row['EMA_10'],
-            row['EMA_20'],
-            row['EMA_50'],
-            row['SMA_10'],
-            row['SMA_20'],
-            row['SMA_50'],
-            row['Price_Range'],
-            row['Volume_MA'],
+            row["Lag_1"],
+            row["Lag_2"],
+            row["Lag_3"],
+            row["Lag_5"],
+            row["Momentum"],
+            row["Rolling_STD"],
+            row["RSI"],
+            row["MACD"],
+            row["MACD_SIGNAL"],
+            row["BB_HIGH"],
+            row["BB_LOW"],
+            row["ATR"],
+            row["Volume_Change"],
+            row["EMA_10"],
+            row["EMA_20"],
+            row["EMA_50"],
+            row["SMA_10"],
+            row["SMA_20"],
+            row["SMA_50"],
+            row["Price_Range"],
+            row["Volume_MA"],
             self.cash,
             self.shares,
             self.portfolio_value
@@ -80,85 +74,68 @@ class TradingEnv(gym.Env):
         return obs
 
     def step(self, action):
-        reward = 0.0
-        current_price = self.data['Close'].iloc[self.current_step]
+
+        current_price = float(
+            self.data["Close"].iloc[self.current_step]
+        )
 
         transaction_cost = 0.001
         slippage = 0.0005
+        position_size = 0.95
 
         trade_cost = 0
 
-        position_size = 0.95
-
-        transaction_cost = 0.0005
-
-        stop_loss = 0.03
-        take_profit = 0.06
-
+        # BUY
         if action == 1 and self.cash > 0:
 
-            invest_amount = self.cash * position_size
+            invest_amount = (
+                self.cash * position_size
+            )
 
-            self.shares += invest_amount / current_price
+            executed_price = (
+                current_price * (1 + slippage)
+            )
+
+            bought_shares = (
+                invest_amount / executed_price
+            )
+
+            self.shares += bought_shares
 
             self.cash -= invest_amount
 
-            trade_cost = invest_amount * (
-                transaction_cost + slippage
+            trade_cost = (
+                invest_amount * transaction_cost
             )
 
-            self.position = 1
+            self.cash -= trade_cost
 
+            self.position = 1
+            self.entry_price = executed_price
+
+        # SELL
         elif action == 2 and self.shares > 0:
 
-            sell_value = self.shares * current_price
+            executed_price = (
+                current_price * (1 - slippage)
+            )
 
-            self.cash += sell_value
+            sell_value = (
+                self.shares * executed_price
+            )
+
+            trade_cost = (
+                sell_value * transaction_cost
+            )
+
+            self.cash += (
+                sell_value - trade_cost
+            )
 
             self.shares = 0
 
-            trade_cost = sell_value * (
-                transaction_cost + slippage
-            )
+            self.position = 0
 
-            self.position = -1
-
-
-        else:
-            pass
-
-        if self.position == 1:
-
-            pnl = (
-                current_price - self.entry_price
-            ) / self.entry_price
-
-            reward += pnl
-
-            if pnl <= -stop_loss or pnl >= take_profit:
-                self.balance *= (1 + pnl)
-                self.position = 0
-
-        elif self.position == -1:
-
-            pnl = (
-                self.entry_price - current_price
-            ) / self.entry_price
-
-            reward += pnl
-
-            if pnl <= -stop_loss or pnl >= take_profit:
-                self.balance *= (1 + pnl)
-                self.position = 0
-
-        reward = np.clip(reward, -1, 1)
-
-        self.max_balance = max(
-            self.max_balance,
-            self.balance
-        )
-        
-        
         self.portfolio_value = (
             self.cash +
             self.shares * current_price
@@ -171,19 +148,20 @@ class TradingEnv(gym.Env):
             self.prev_portfolio_value + 1e-8
         )
 
-        reward -= trade_cost / (
-            self.prev_portfolio_value + 1e-8
+        reward = np.clip(
+            reward,
+            -1,
+            1
         )
 
-        reward -= (
-            abs(self.shares) * 0.00001
+        self.max_balance = max(
+            self.max_balance,
+            self.portfolio_value
         )
 
         self.prev_portfolio_value = (
             self.portfolio_value
         )
-
-
 
         self.current_step += 1
 
@@ -196,11 +174,17 @@ class TradingEnv(gym.Env):
         obs = self._next_observation()
 
         info = {
-            "cash": self.cash,
-            "shares": self.shares,
-            "portfolio_value": self.portfolio_value,
-            "position": self.position
+            "cash": round(self.cash, 2),
+            "shares": round(self.shares, 4),
+            "portfolio_value": round(
+                self.portfolio_value, 2
+            ),
+            "position": self.position,
+            "max_balance": round(
+                self.max_balance, 2
+            )
         }
+
         return (
             obs,
             reward,

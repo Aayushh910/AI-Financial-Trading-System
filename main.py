@@ -345,6 +345,21 @@ plt.savefig(
 plt.show()
 plt.close()
 
+gross_profit = strategy_returns[
+    strategy_returns > 0
+].sum()
+
+gross_loss = abs(
+    strategy_returns[
+        strategy_returns < 0
+    ].sum()
+)
+
+profit_factor = (
+    gross_profit / gross_loss
+    if gross_loss > 0
+    else 0
+)
 
 total_return = (
     equity_curve.iloc[-1] - 1
@@ -367,11 +382,74 @@ max_drawdown = (
     drawdown.min()
 )
 
-print("\n===== Backtest Results =====")
-print("Return:", total_return)
-print("Sharpe:", sharpe)
-print("Max Drawdown:", max_drawdown)
+years = len(strategy_returns) / 252
 
+cagr = (
+    equity_curve.iloc[-1]
+) ** (1 / years) - 1
+
+downside_returns = strategy_returns[
+    strategy_returns < 0
+]
+
+downside_std = (
+    downside_returns.std()
+    + 1e-8
+)
+
+sortino = (
+    strategy_returns.mean()
+    / downside_std
+)
+
+
+trade_returns = strategy_returns[
+    signals != 0
+]
+
+total_trades = len(trade_returns)
+
+winning_trades = len(
+    trade_returns[
+        trade_returns > 0
+    ]
+)
+
+losing_trades = len(
+    trade_returns[
+        trade_returns < 0
+    ]
+)
+
+win_rate = (
+    winning_trades
+    / total_trades
+    * 100
+    if total_trades > 0
+    else 0
+)
+
+avg_trade_return = (
+    trade_returns.mean()
+    if total_trades > 0
+    else 0
+)
+
+
+print("\n===== Backtest Results =====")
+
+print("Return:", round(total_return, 4))
+print("CAGR:", round(cagr, 4))
+print("Sharpe:", round(sharpe, 4))
+print("Sortino:", round(sortino, 4))
+print("Profit Factor:", round(profit_factor, 4))
+print("Max Drawdown:", round(max_drawdown, 4))
+
+print("Total Trades:", total_trades)
+print("Winning Trades:", winning_trades)
+print("Losing Trades:", losing_trades)
+print("Win Rate (%):", round(win_rate, 2))
+print("Average Trade Return:", round(avg_trade_return, 5))
 
 # ==========================
 # Buy & Hold Comparison

@@ -17,7 +17,7 @@ def evaluate_agent(data):
 
     total_reward = 0
 
-    balances = []
+    portfolio_values = []
     positions = []
 
     initial_balance = 10000
@@ -33,8 +33,8 @@ def evaluate_agent(data):
 
         total_reward += reward
 
-        balances.append(
-            info["balance"]
+        portfolio_values.append(
+            info["portfolio_value"]
         )
 
         positions.append(
@@ -44,16 +44,18 @@ def evaluate_agent(data):
         if terminated or truncated:
             break
 
-    final_balance = balances[-1]
+    final_balance = portfolio_values[-1]
 
     total_return = (
         (final_balance / initial_balance) - 1
     ) * 100
 
-    max_balance = max(balances)
-    min_balance = min(balances)
+    max_balance = max(portfolio_values)
+    min_balance = min(portfolio_values)
 
-    equity_curve = np.array(balances)
+    equity_curve = np.array(
+        portfolio_values
+    )
 
     running_max = np.maximum.accumulate(
         equity_curve
@@ -82,11 +84,11 @@ def evaluate_agent(data):
 
     print(
         "Total Reward:",
-        round(total_reward, 4)
+        round(float(total_reward), 4)
     )
 
     print(
-        "Final Balance:",
+        "Final Portfolio Value:",
         round(final_balance, 2)
     )
 
@@ -119,19 +121,19 @@ def evaluate_agent(data):
     )
 
     print(
-        "Max Balance:",
+        "Max Portfolio Value:",
         round(max_balance, 2)
     )
 
     print(
-        "Min Balance:",
+        "Min Portfolio Value:",
         round(min_balance, 2)
     )
 
     plt.figure(figsize=(10, 5))
 
     plt.plot(
-        balances,
+        portfolio_values,
         label="RL Equity Curve",
         color="blue"
     )
@@ -141,15 +143,15 @@ def evaluate_agent(data):
     )
 
     plt.xlabel("Steps")
-    plt.ylabel("Balance")
+    plt.ylabel("Portfolio Value")
 
     plt.legend()
 
     plt.grid(True)
 
     plt.savefig(
-    "outputs/charts/rl_equity_curve.png",
-    bbox_inches="tight"
-)
+        "outputs/charts/rl_equity_curve.png",
+        bbox_inches="tight"
+    )
 
-    plt.show()  
+    plt.show()
