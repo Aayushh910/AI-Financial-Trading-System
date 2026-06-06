@@ -1,8 +1,11 @@
+# rl_agents/evaluate_rl.py
+
 from stable_baselines3 import PPO
 from rl_agents.trading_env import TradingEnv
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 
 def evaluate_agent(data):
@@ -20,7 +23,7 @@ def evaluate_agent(data):
     portfolio_values = []
     positions = []
 
-    initial_balance = 10000
+    initial_balance = env.initial_balance
 
     while True:
 
@@ -29,7 +32,9 @@ def evaluate_agent(data):
             deterministic=True
         )
 
-        obs, reward, terminated, truncated, info = env.step(action)
+        obs, reward, terminated, truncated, info = env.step(
+            action
+        )
 
         total_reward += reward
 
@@ -44,14 +49,22 @@ def evaluate_agent(data):
         if terminated or truncated:
             break
 
-    final_balance = portfolio_values[-1]
+    final_portfolio_value = portfolio_values[-1]
 
     total_return = (
-        (final_balance / initial_balance) - 1
+        (
+            final_portfolio_value /
+            initial_balance
+        ) - 1
     ) * 100
 
-    max_balance = max(portfolio_values)
-    min_balance = min(portfolio_values)
+    max_portfolio_value = max(
+        portfolio_values
+    )
+
+    min_portfolio_value = min(
+        portfolio_values
+    )
 
     equity_curve = np.array(
         portfolio_values
@@ -62,20 +75,27 @@ def evaluate_agent(data):
     )
 
     drawdown = (
-        equity_curve / running_max
+        equity_curve /
+        running_max
     ) - 1
 
-    max_drawdown = drawdown.min() * 100
+    max_drawdown = (
+        drawdown.min() * 100
+    )
 
     trades = [
         p for p in positions
         if p != 0
     ]
 
+    winning_trades = len([
+        x for x in trades
+        if x == 1
+    ])
+
     win_rate = (
-        len([x for x in trades if x == 1])
-        / len(trades)
-        * 100
+        winning_trades /
+        len(trades) * 100
         if len(trades) > 0
         else 0
     )
@@ -84,18 +104,19 @@ def evaluate_agent(data):
 
     print(
         "Total Reward:",
-        round(float(total_reward), 4)
+        round(total_reward, 4)
     )
 
     print(
         "Final Portfolio Value:",
-        round(final_balance, 2)
+        round(final_portfolio_value, 2)
     )
 
     print(
         "Profit/Loss:",
         round(
-            final_balance - initial_balance,
+            final_portfolio_value -
+            initial_balance,
             2
         )
     )
@@ -122,15 +143,22 @@ def evaluate_agent(data):
 
     print(
         "Max Portfolio Value:",
-        round(max_balance, 2)
+        round(max_portfolio_value, 2)
     )
 
     print(
         "Min Portfolio Value:",
-        round(min_balance, 2)
+        round(min_portfolio_value, 2)
     )
 
-    plt.figure(figsize=(10, 5))
+    os.makedirs(
+        "outputs/charts",
+        exist_ok=True
+    )
+
+    plt.figure(
+        figsize=(10, 5)
+    )
 
     plt.plot(
         portfolio_values,
@@ -142,16 +170,31 @@ def evaluate_agent(data):
         "RL Agent Portfolio Value"
     )
 
-    plt.xlabel("Steps")
-    plt.ylabel("Portfolio Value")
+    plt.xlabel(
+        "Steps"
+    )
+
+    plt.ylabel(
+        "Portfolio Value"
+    )
 
     plt.legend()
 
     plt.grid(True)
+
+    plt.tight_layout()
 
     plt.savefig(
         "outputs/charts/rl_equity_curve.png",
         bbox_inches="tight"
     )
 
-    plt.show()
+    plt.close()
+
+    return {
+        "total_reward": total_reward,
+        "final_portfolio_value": final_portfolio_value,
+        "return_pct": total_return,
+        "max_drawdown_pct": max_drawdown,
+        "win_rate": win_rate
+    }

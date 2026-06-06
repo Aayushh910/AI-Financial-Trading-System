@@ -18,6 +18,7 @@ from models.portfolio_optimizer import optimize_portfolio
 from rl_agents.train_rl import train_agent
 from rl_agents.evaluate_rl import evaluate_agent
 
+from validation.walk_forward import walk_forward_validation
 
 os.makedirs("outputs/charts", exist_ok=True)
 os.makedirs("outputs/reports", exist_ok=True)
@@ -101,6 +102,11 @@ features = [
     "Price_Range",
     "Volume_MA"
 ]
+
+wf_results = walk_forward_validation(
+    data,
+    features
+)
 
 X = data[features]
 y = data["Target"]
@@ -450,6 +456,26 @@ print("Winning Trades:", winning_trades)
 print("Losing Trades:", losing_trades)
 print("Win Rate (%):", round(win_rate, 2))
 print("Average Trade Return:", round(avg_trade_return, 5))
+
+print(
+    "\nWalk Forward MAE:",
+    round(wf_results["MAE"], 6)
+)
+
+print(
+    "Walk Forward MSE:",
+    round(wf_results["MSE"], 6)
+)
+
+print(
+    "Walk Forward Return:",
+    round(wf_results["Return"], 4)
+)
+
+print(
+    "Walk Forward Sharpe:",
+    round(wf_results["Sharpe"], 4)
+)
 
 # ==========================
 # Buy & Hold Comparison

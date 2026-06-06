@@ -1,3 +1,5 @@
+# rl_agents/trading_env.py
+
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
@@ -11,8 +13,36 @@ class TradingEnv(gym.Env):
         self.data = data.reset_index(drop=True)
 
         self.initial_balance = 10000
+        self.transaction_cost = 0.001
+        self.slippage = 0.0005
+        self.position_size = 0.95
 
         self.action_space = spaces.Discrete(3)
+        # 0 = Hold, 1 = Buy, 2 = Sell
+
+        self.feature_columns = [
+            "Lag_1",
+            "Lag_2",
+            "Lag_3",
+            "Lag_5",
+            "Momentum",
+            "Rolling_STD",
+            "RSI",
+            "MACD",
+            "MACD_SIGNAL",
+            "BB_HIGH",
+            "BB_LOW",
+            "ATR",
+            "Volume_Change",
+            "EMA_10",
+            "EMA_20",
+            "EMA_50",
+            "SMA_10",
+            "SMA_20",
+            "SMA_50",
+            "Price_Range",
+            "Volume_MA"
+        ]
 
         self.observation_space = spaces.Box(
             low=-np.inf,
@@ -29,14 +59,13 @@ class TradingEnv(gym.Env):
         self.current_step = 0
 
         self.cash = self.initial_balance
-        self.shares = 0
-
-        self.position = 0
-        self.entry_price = 0
+        self.shares = 0.0
 
         self.portfolio_value = self.initial_balance
         self.prev_portfolio_value = self.initial_balance
-        self.max_balance = self.initial_balance
+
+        self.position = 0
+        self.entry_price = 0.0
 
         return self._next_observation(), {}
 
@@ -44,34 +73,15 @@ class TradingEnv(gym.Env):
 
         row = self.data.iloc[self.current_step]
 
-        obs = np.array([
-            row["Lag_1"],
-            row["Lag_2"],
-            row["Lag_3"],
-            row["Lag_5"],
-            row["Momentum"],
-            row["Rolling_STD"],
-            row["RSI"],
-            row["MACD"],
-            row["MACD_SIGNAL"],
-            row["BB_HIGH"],
-            row["BB_LOW"],
-            row["ATR"],
-            row["Volume_Change"],
-            row["EMA_10"],
-            row["EMA_20"],
-            row["EMA_50"],
-            row["SMA_10"],
-            row["SMA_20"],
-            row["SMA_50"],
-            row["Price_Range"],
-            row["Volume_MA"],
+        obs = [row[col] for col in self.feature_columns]
+
+        obs.extend([
             self.cash,
             self.shares,
             self.portfolio_value
-        ], dtype=np.float32)
+        ])
 
-        return obs
+        return np.array(obs, dtype=np.float32)
 
     def step(self, action):
 
@@ -79,68 +89,72 @@ class TradingEnv(gym.Env):
             self.data["Close"].iloc[self.current_step]
         )
 
-        transaction_cost = 0.001
-        slippage = 0.0005
-        position_size = 0.95
+        if self.current_step > 0:
+            previous_price = float(
+                self.data["Close"].iloc[self.current_step - 1]
+            )
+        else:
+            previous_price = current_price
 
-        trade_cost = 0
+        trade_cost = 0.0
 
         # BUY
         if action == 1 and self.cash > 0:
 
-            invest_amount = (
-                self.cash * position_size
+            invest_amount = self.cash * self.position_size
+
+            execution_price = current_price * (
+                1 + self.slippage
             )
 
-            executed_price = (
-                current_price * (1 + slippage)
+            shares_bought = (
+                invest_amount / execution_price
             )
 
-            bought_shares = (
-                invest_amount / executed_price
+            trade_cost = invest_amount * (
+                self.transaction_cost
             )
 
-            self.shares += bought_shares
-
-            self.cash -= invest_amount
-
-            trade_cost = (
-                invest_amount * transaction_cost
+            self.cash -= (
+                invest_amount + trade_cost
             )
 
-            self.cash -= trade_cost
+            self.shares += shares_bought
 
             self.position = 1
-            self.entry_price = executed_price
+            self.entry_price = execution_price
 
         # SELL
         elif action == 2 and self.shares > 0:
 
-            executed_price = (
-                current_price * (1 - slippage)
+            execution_price = current_price * (
+                1 - self.slippage
             )
 
             sell_value = (
-                self.shares * executed_price
+                self.shares * execution_price
             )
 
-            trade_cost = (
-                sell_value * transaction_cost
+            trade_cost = sell_value * (
+                self.transaction_cost
             )
 
             self.cash += (
                 sell_value - trade_cost
             )
 
-            self.shares = 0
+            self.shares = 0.0
 
             self.position = 0
+            self.entry_price = 0.0
 
+        # Portfolio value
         self.portfolio_value = (
             self.cash +
             self.shares * current_price
         )
 
+        # Reward = portfolio growth
         reward = (
             self.portfolio_value -
             self.prev_portfolio_value
@@ -148,15 +162,14 @@ class TradingEnv(gym.Env):
             self.prev_portfolio_value + 1e-8
         )
 
-        reward = np.clip(
-            reward,
-            -1,
-            1
+        # Small penalty for trading
+        reward -= (
+            trade_cost /
+            (self.prev_portfolio_value + 1e-8)
         )
 
-        self.max_balance = max(
-            self.max_balance,
-            self.portfolio_value
+        reward = float(
+            np.clip(reward, -1, 1)
         )
 
         self.prev_portfolio_value = (
@@ -171,18 +184,19 @@ class TradingEnv(gym.Env):
 
         truncated = False
 
-        obs = self._next_observation()
+        if terminated:
+            obs = np.zeros(
+                self.observation_space.shape,
+                dtype=np.float32
+            )
+        else:
+            obs = self._next_observation()
 
         info = {
-            "cash": round(self.cash, 2),
-            "shares": round(self.shares, 4),
-            "portfolio_value": round(
-                self.portfolio_value, 2
-            ),
-            "position": self.position,
-            "max_balance": round(
-                self.max_balance, 2
-            )
+            "cash": self.cash,
+            "shares": self.shares,
+            "portfolio_value": self.portfolio_value,
+            "position": self.position
         }
 
         return (
