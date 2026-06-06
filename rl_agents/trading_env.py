@@ -9,15 +9,20 @@ class TradingEnv(gym.Env):
         super().__init__()
 
         self.data = data.reset_index(drop=True)
-
         self.initial_balance = 10000
+        self.cash = self.initial_balance
+        self.shares = 0
+        self.position = 0
+
+        self.portfolio_value = self.initial_balance
+        self.prev_portfolio_value = self.initial_balance
 
         self.action_space = spaces.Discrete(3)
 
         self.observation_space = spaces.Box(
             low=-np.inf,
             high=np.inf,
-            shape=(21,),
+            shape=(24,),
             dtype=np.float32
         )
 
@@ -26,7 +31,11 @@ class TradingEnv(gym.Env):
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
 
-        self.balance = self.initial_balance
+        self.cash = self.initial_balance
+        self.shares = 0
+
+        self.portfolio_value = self.initial_balance
+        self.prev_portfolio_value = self.initial_balance
         self.max_balance = self.initial_balance
 
         self.current_step = 0
@@ -39,6 +48,7 @@ class TradingEnv(gym.Env):
     def _next_observation(self):
 
         row = self.data.iloc[self.current_step]
+        
 
         obs = np.array([
             row['Lag_1'],
@@ -61,35 +71,61 @@ class TradingEnv(gym.Env):
             row['SMA_20'],
             row['SMA_50'],
             row['Price_Range'],
-            row['Volume_MA']
+            row['Volume_MA'],
+            self.cash,
+            self.shares,
+            self.portfolio_value
         ], dtype=np.float32)
 
         return obs
 
     def step(self, action):
-
+        reward = 0.0
         current_price = self.data['Close'].iloc[self.current_step]
 
-        reward = 0
+        transaction_cost = 0.001
+        slippage = 0.0005
+
+        trade_cost = 0
+
+        position_size = 0.95
 
         transaction_cost = 0.0005
 
         stop_loss = 0.03
         take_profit = 0.06
 
-        if action == 1:
+        if action == 1 and self.cash > 0:
 
-            if self.position == 0:
-                self.position = 1
-                self.entry_price = current_price
-                reward -= transaction_cost
+            invest_amount = self.cash * position_size
 
-        elif action == 2:
+            self.shares += invest_amount / current_price
 
-            if self.position == 0:
-                self.position = -1
-                self.entry_price = current_price
-                reward -= transaction_cost
+            self.cash -= invest_amount
+
+            trade_cost = invest_amount * (
+                transaction_cost + slippage
+            )
+
+            self.position = 1
+
+        elif action == 2 and self.shares > 0:
+
+            sell_value = self.shares * current_price
+
+            self.cash += sell_value
+
+            self.shares = 0
+
+            trade_cost = sell_value * (
+                transaction_cost + slippage
+            )
+
+            self.position = -1
+
+
+        else:
+            pass
 
         if self.position == 1:
 
@@ -121,6 +157,33 @@ class TradingEnv(gym.Env):
             self.max_balance,
             self.balance
         )
+        
+        
+        self.portfolio_value = (
+            self.cash +
+            self.shares * current_price
+        )
+
+        reward = (
+            self.portfolio_value -
+            self.prev_portfolio_value
+        ) / (
+            self.prev_portfolio_value + 1e-8
+        )
+
+        reward -= trade_cost / (
+            self.prev_portfolio_value + 1e-8
+        )
+
+        reward -= (
+            abs(self.shares) * 0.00001
+        )
+
+        self.prev_portfolio_value = (
+            self.portfolio_value
+        )
+
+
 
         self.current_step += 1
 
@@ -133,11 +196,11 @@ class TradingEnv(gym.Env):
         obs = self._next_observation()
 
         info = {
-            "balance": self.balance,
-            "position": self.position,
-            "max_balance": self.max_balance
+            "cash": self.cash,
+            "shares": self.shares,
+            "portfolio_value": self.portfolio_value,
+            "position": self.position
         }
-
         return (
             obs,
             reward,
