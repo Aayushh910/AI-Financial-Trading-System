@@ -55,7 +55,7 @@ class TradingEnv(gym.Env):
         self.observation_space = spaces.Box(
             low=-10.0,
             high=10.0,
-            shape=(24,),
+            shape=(25,),
             dtype=np.float32
         )
 
@@ -71,6 +71,7 @@ class TradingEnv(gym.Env):
 
         self.portfolio_value = float(self.initial_balance)
         self.prev_portfolio_value = float(self.initial_balance)
+        self.max_portfolio_value = float(self.initial_balance)
 
         self.position = 0
         self.entry_price = 0.0
@@ -79,23 +80,25 @@ class TradingEnv(gym.Env):
 
     def _next_observation(self):
         if self.current_step >= self.num_steps:
-            return np.zeros(24, dtype=np.float32)
+            return np.zeros(25, dtype=np.float32)
 
         feat = self.features_np[self.current_step]
         cash_ratio = float(self.cash / (self.portfolio_value + 1e-8))
         return_ratio = float((self.portfolio_value - self.initial_balance) / self.initial_balance)
         pos_ratio = float(self.position)
+        drawdown_ratio = float((self.max_portfolio_value - self.portfolio_value) / (self.max_portfolio_value + 1e-8))
 
-        obs = np.empty(24, dtype=np.float32)
+        obs = np.empty(25, dtype=np.float32)
         obs[:21] = feat
         obs[21] = pos_ratio
         obs[22] = cash_ratio
         obs[23] = return_ratio
+        obs[24] = np.clip(drawdown_ratio, 0.0, 1.0)
         return obs
 
     def step(self, action):
         current_price = float(self.prices_np[self.current_step])
-        trade_cost = 0.0
+        prev_pos = self.position
 
         # BUY
         if action == 1 and self.cash > 0:
@@ -153,14 +156,30 @@ class TradingEnv(gym.Env):
             (self.shares * current_price)
         )
 
+        self.max_portfolio_value = max(
+            self.max_portfolio_value,
+            self.portfolio_value
+        )
+
+        drawdown = (
+            self.max_portfolio_value - self.portfolio_value
+        ) / (self.max_portfolio_value + 1e-8)
+
         step_return = (
             self.portfolio_value - self.prev_portfolio_value
         ) / (
             self.prev_portfolio_value + 1e-8
         )
 
-        cost_penalty = trade_cost / (self.prev_portfolio_value + 1e-8)
-        reward = step_return - cost_penalty
+        # Smooth Risk-Adjusted Reward
+        downside_penalty = 0.5 * max(0.0, -step_return)
+        dd_penalty = 1.5 * (drawdown ** 2)
+        if drawdown > 0.15:
+            dd_penalty += 3.0 * (drawdown - 0.15)
+
+        action_penalty = 0.001 if self.position != prev_pos else 0.0
+
+        reward = step_return - downside_penalty - dd_penalty - action_penalty
 
         reward = float(
             np.clip(reward, -1.0, 1.0)
@@ -184,7 +203,9 @@ class TradingEnv(gym.Env):
             "cash": self.cash,
             "shares": self.shares,
             "portfolio_value": self.portfolio_value,
-            "position": self.position
+            "position": self.position,
+            "drawdown": drawdown,
+            "price": current_price
         }
 
         return (

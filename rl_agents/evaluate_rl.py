@@ -27,6 +27,12 @@ def evaluate_agent(data):
 
     initial_balance = env.initial_balance
 
+    # Track discrete trade round-trips for realistic metrics
+    trade_returns = []
+    in_trade = False
+    entry_price = 0.0
+    prev_pos = 0
+
     while True:
 
         action, _ = model.predict(
@@ -37,6 +43,24 @@ def evaluate_agent(data):
         obs, reward, terminated, truncated, info = env.step(
             action
         )
+
+        curr_pos = info["position"]
+        curr_price = info["price"]
+
+        # Position entered (0 -> 1)
+        if prev_pos == 0 and curr_pos == 1:
+            in_trade = True
+            entry_price = curr_price * (1 + env.slippage)
+
+        # Position exited (1 -> 0)
+        elif prev_pos == 1 and curr_pos == 0 and in_trade:
+            exit_price = curr_price * (1 - env.slippage)
+            net_trade_ret = ((exit_price * (1 - env.transaction_cost)) /
+                             (entry_price * (1 + env.transaction_cost))) - 1.0
+            trade_returns.append(net_trade_ret)
+            in_trade = False
+
+        prev_pos = curr_pos
 
         total_reward += reward
 
@@ -49,6 +73,12 @@ def evaluate_agent(data):
         )
 
         if terminated or truncated:
+            # Handle open position at the end of episode
+            if in_trade:
+                exit_price = curr_price * (1 - env.slippage)
+                net_trade_ret = ((exit_price * (1 - env.transaction_cost)) /
+                                 (entry_price * (1 + env.transaction_cost))) - 1.0
+                trade_returns.append(net_trade_ret)
             break
 
     final_portfolio_value = portfolio_values[-1]
@@ -85,22 +115,36 @@ def evaluate_agent(data):
         drawdown.min() * 100
     )
 
-    trades = [
-        p for p in positions
-        if p != 0
-    ]
-
-    winning_trades = len([
-        x for x in trades
-        if x == 1
-    ])
+    # Accurate Trade Metrics
+    total_trades = len(trade_returns)
+    winning_trades = len([r for r in trade_returns if r > 0])
+    losing_trades = len([r for r in trade_returns if r <= 0])
 
     win_rate = (
-        winning_trades /
-        len(trades) * 100
-        if len(trades) > 0
+        (winning_trades / total_trades * 100)
+        if total_trades > 0
         else 0.0
     )
+
+    avg_trade_return = (
+        np.mean(trade_returns)
+        if total_trades > 0
+        else 0.0
+    )
+
+    # Daily Return Metrics
+    step_returns = np.diff(portfolio_values) / (np.array(portfolio_values[:-1]) + 1e-8)
+    sharpe = (np.mean(step_returns) / (np.std(step_returns) + 1e-8)) * np.sqrt(252)
+
+    downside = step_returns[step_returns < 0]
+    sortino = (np.mean(step_returns) / (np.std(downside) + 1e-8)) * np.sqrt(252) if len(downside) > 0 else 0.0
+
+    gross_profit = sum([r for r in trade_returns if r > 0])
+    gross_loss = abs(sum([r for r in trade_returns if r < 0]))
+    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (999.0 if gross_profit > 0 else 0.0)
+
+    years = max(len(portfolio_values) / 252.0, 0.1)
+    cagr = (((final_portfolio_value / initial_balance) ** (1 / years)) - 1) * 100
 
     print("\n===== RL Evaluation =====")
 
@@ -129,13 +173,53 @@ def evaluate_agent(data):
     )
 
     print(
+        "CAGR (%):",
+        round(cagr, 2)
+    )
+
+    print(
+        "Sharpe Ratio:",
+        round(sharpe, 4)
+    )
+
+    print(
+        "Sortino Ratio:",
+        round(sortino, 4)
+    )
+
+    print(
         "Max Drawdown (%):",
         round(max_drawdown, 2)
     )
 
     print(
+        "Total Closed Trades:",
+        total_trades
+    )
+
+    print(
+        "Winning Trades:",
+        winning_trades
+    )
+
+    print(
+        "Losing Trades:",
+        losing_trades
+    )
+
+    print(
         "Win Rate (%):",
         round(win_rate, 2)
+    )
+
+    print(
+        "Profit Factor:",
+        round(profit_factor, 4)
+    )
+
+    print(
+        "Average Trade Return (%):",
+        round(avg_trade_return * 100, 4)
     )
 
     print(
@@ -157,6 +241,27 @@ def evaluate_agent(data):
         "outputs/charts",
         exist_ok=True
     )
+
+    os.makedirs(
+        "outputs/reports",
+        exist_ok=True
+    )
+
+    # Save RL metrics report
+    with open("outputs/reports/rl_metrics.txt", "w") as f:
+        f.write("===== RL AGENT EVALUATION METRICS =====\n")
+        f.write(f"Total Reward: {total_reward:.4f}\n")
+        f.write(f"Final Portfolio Value: {final_portfolio_value:.2f}\n")
+        f.write(f"Return (%): {total_return:.2f}\n")
+        f.write(f"CAGR (%): {cagr:.2f}\n")
+        f.write(f"Sharpe Ratio: {sharpe:.4f}\n")
+        f.write(f"Sortino Ratio: {sortino:.4f}\n")
+        f.write(f"Max Drawdown (%): {max_drawdown:.2f}\n")
+        f.write(f"Total Closed Trades: {total_trades}\n")
+        f.write(f"Winning Trades: {winning_trades}\n")
+        f.write(f"Losing Trades: {losing_trades}\n")
+        f.write(f"Win Rate (%): {win_rate:.2f}\n")
+        f.write(f"Profit Factor: {profit_factor:.4f}\n")
 
     plt.figure(
         figsize=(10, 5)
@@ -198,5 +303,11 @@ def evaluate_agent(data):
         "final_portfolio_value": final_portfolio_value,
         "return_pct": total_return,
         "max_drawdown_pct": max_drawdown,
-        "win_rate": win_rate
+        "win_rate": win_rate,
+        "total_trades": total_trades,
+        "winning_trades": winning_trades,
+        "losing_trades": losing_trades,
+        "sharpe": sharpe,
+        "sortino": sortino,
+        "cagr": cagr
     }
