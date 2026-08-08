@@ -1,11 +1,13 @@
 # rl_agents/evaluate_rl.py
 
-from stable_baselines3 import PPO
-from rl_agents.trading_env import TradingEnv
-
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+
+from stable_baselines3 import PPO
+from rl_agents.trading_env import TradingEnv
 
 
 def evaluate_agent(data):
@@ -18,7 +20,7 @@ def evaluate_agent(data):
 
     obs, _ = env.reset()
 
-    total_reward = 0
+    total_reward = 0.0
 
     portfolio_values = []
     positions = []
@@ -97,7 +99,7 @@ def evaluate_agent(data):
         winning_trades /
         len(trades) * 100
         if len(trades) > 0
-        else 0
+        else 0.0
     )
 
     print("\n===== RL Evaluation =====")

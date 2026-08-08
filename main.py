@@ -1,9 +1,11 @@
 import os
 import joblib
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -30,20 +32,17 @@ os.makedirs("saved_models", exist_ok=True)
 # ==========================
 
 assets = ["AAPL", "MSFT", "GOOG"]
-
 data_portfolio = pd.DataFrame()
 
 for asset in assets:
-    df = yf.download(
-        asset,
-        start="2015-01-01"
-    )["Close"]
+    df_asset = yf.download(asset, start="2015-01-01", progress=False)
+    if isinstance(df_asset.columns, pd.MultiIndex):
+        df_asset.columns = df_asset.columns.get_level_values(0)
+    data_portfolio[asset] = df_asset["Close"]
 
-    data_portfolio[asset] = df
+returns_portfolio = data_portfolio.pct_change().dropna()
 
-returns = data_portfolio.pct_change().dropna()
-
-weights, ret, risk = optimize_portfolio(returns)
+weights, ret, risk = optimize_portfolio(returns_portfolio)
 
 weights_df = pd.DataFrame({
     "Asset": assets,
@@ -66,7 +65,8 @@ print("Risk:", risk)
 data = yf.download(
     "AAPL",
     start="2015-01-01",
-    auto_adjust=False
+    auto_adjust=False,
+    progress=False
 )
 
 if isinstance(data.columns, pd.MultiIndex):
@@ -157,12 +157,13 @@ joblib.dump(
 # ==========================
 
 model = XGBRegressor(
-    n_estimators=500,
+    n_estimators=100,
     max_depth=4,
     learning_rate=0.03,
     subsample=0.8,
     colsample_bytree=0.8,
     random_state=42,
+    n_jobs=-1,
     objective="reg:squarederror"
 )
 
@@ -241,7 +242,6 @@ plt.savefig(
     "outputs/charts/feature_importance.png",
     bbox_inches="tight"
 )
-plt.show()
 plt.close()
 
 
@@ -249,15 +249,9 @@ plt.close()
 # Signal Generation
 # ==========================
 
-buy_threshold = np.percentile(
-    preds,
-    75
-)
-
-sell_threshold = np.percentile(
-    preds,
-    25
-)
+std_preds = np.std(preds) + 1e-8
+buy_threshold = 0.1 * std_preds
+sell_threshold = -0.1 * std_preds
 
 signals = []
 
@@ -295,7 +289,8 @@ vol_pred = vol_model.predict(
 # Risk Filter
 # ==========================
 
-vol_threshold = y_vol.quantile(
+# Strict training-data threshold to prevent leakage
+vol_threshold = y_vol[:split].quantile(
     0.60
 )
 
@@ -305,7 +300,7 @@ final_signals = apply_risk_filter(
     vol_threshold
 )
 
-print("\nSignals:")
+print("\nSignals (first 20):")
 print(final_signals[:20])
 
 
@@ -319,16 +314,13 @@ returns = data["Target"][split:].reset_index(
 
 signals = pd.Series(final_signals)
 
-strategy_returns = (
-    returns * signals
-)
-
+# Deduct transaction fee ONLY when a position entry or change occurs
+trades = (signals.diff().fillna(signals) != 0) & (signals != 0)
 transaction_cost = 0.001
 
 strategy_returns = (
-    strategy_returns
-    - transaction_cost * (signals != 0)
-)
+    returns * signals
+) - (trades.astype(float) * transaction_cost)
 
 equity_curve = (
     1 + strategy_returns
@@ -348,7 +340,6 @@ plt.savefig(
     "outputs/charts/equity_curve.png",
     bbox_inches="tight"
 )
-plt.show()
 plt.close()
 
 gross_profit = strategy_returns[
@@ -364,7 +355,7 @@ gross_loss = abs(
 profit_factor = (
     gross_profit / gross_loss
     if gross_loss > 0
-    else 0
+    else 0.0
 )
 
 total_return = (
@@ -374,7 +365,7 @@ total_return = (
 sharpe = (
     np.mean(strategy_returns)
     / (np.std(strategy_returns) + 1e-8)
-)
+) * np.sqrt(252)
 
 rolling_max = (
     equity_curve.cummax()
@@ -388,7 +379,7 @@ max_drawdown = (
     drawdown.min()
 )
 
-years = len(strategy_returns) / 252
+years = max(len(strategy_returns) / 252.0, 0.1)
 
 cagr = (
     equity_curve.iloc[-1]
@@ -404,13 +395,12 @@ downside_std = (
 )
 
 sortino = (
-    strategy_returns.mean()
-    / downside_std
+    (strategy_returns.mean() / downside_std) * np.sqrt(252)
 )
 
 
 trade_returns = strategy_returns[
-    signals != 0
+    trades
 ]
 
 total_trades = len(trade_returns)
@@ -432,13 +422,13 @@ win_rate = (
     / total_trades
     * 100
     if total_trades > 0
-    else 0
+    else 0.0
 )
 
 avg_trade_return = (
     trade_returns.mean()
     if total_trades > 0
-    else 0
+    else 0.0
 )
 
 
@@ -506,7 +496,6 @@ plt.savefig(
     "outputs/charts/strategy_vs_buy_hold.png",
     bbox_inches="tight"
 )
-plt.show()
 plt.close()
 
 

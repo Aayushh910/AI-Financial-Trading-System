@@ -14,28 +14,28 @@ def train_agent(data):
     model = PPO(
         "MlpPolicy",
         env,
-        verbose=1,
+        verbose=0,
 
-        learning_rate=5e-5,
-        n_steps=4096,
-        batch_size=256,
+        learning_rate=1e-4,
+        n_steps=2048,
+        batch_size=128,
 
-        gamma=0.995,
-        gae_lambda=0.98,
+        gamma=0.99,
+        gae_lambda=0.95,
 
-        ent_coef=0.005,
+        ent_coef=0.01,
         clip_range=0.2,
 
-        n_epochs=20,
+        n_epochs=10,
 
         policy_kwargs=dict(
-            net_arch=[256, 256, 128]
+            net_arch=[128, 128]
         )
     )
 
     model.learn(
-        total_timesteps=100000,
-        progress_bar=True
+        total_timesteps=25000,
+        progress_bar=False
     )
 
     model.save(

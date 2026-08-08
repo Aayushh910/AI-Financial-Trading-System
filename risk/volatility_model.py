@@ -6,7 +6,7 @@ class VolatilityModel:
     def __init__(self):
 
         self.model = RandomForestRegressor(
-            n_estimators=300,
+            n_estimators=100,
             max_depth=6,
             min_samples_split=5,
             min_samples_leaf=2,

@@ -68,18 +68,20 @@ def optimize_portfolio(returns):
 
     weights = result.x
 
-    portfolio_return, portfolio_risk, sharpe = (
-        portfolio_performance(weights)
-    )
+    portfolio_return, portfolio_risk, _ = portfolio_performance(weights)
+
+    annual_return = portfolio_return * 252
+    annual_risk = portfolio_risk * np.sqrt(252)
+    annual_sharpe = annual_return / (annual_risk + 1e-8)
 
     print("\n===== Portfolio Optimization =====")
-    print("Weights:", weights)
-    print("Expected Return:", portfolio_return)
-    print("Risk:", portfolio_risk)
-    print("Sharpe:", sharpe)
+    print("Weights:", np.round(weights, 4))
+    print("Annualized Return:", round(annual_return, 4))
+    print("Annualized Risk:", round(annual_risk, 4))
+    print("Annualized Sharpe:", round(annual_sharpe, 4))
 
     return (
         weights,
-        portfolio_return,
-        portfolio_risk
+        annual_return,
+        annual_risk
     )

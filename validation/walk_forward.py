@@ -47,12 +47,13 @@ def walk_forward_validation(data, features):
         )
 
         model = XGBRegressor(
-            n_estimators=300,
+            n_estimators=100,
             max_depth=4,
             learning_rate=0.03,
             subsample=0.8,
             colsample_bytree=0.8,
             random_state=42,
+            n_jobs=-1,
             objective="reg:squarederror"
         )
 
@@ -78,16 +79,18 @@ def walk_forward_validation(data, features):
         maes.append(mae)
         mses.append(mse)
 
-        signals = np.where(
-            preds > 0,
-            1,
-            -1
-        )
+        # Directional threshold for signals
+        std_pred = np.std(preds) + 1e-8
+        signals = np.zeros(len(preds))
+        signals[preds > 0.1 * std_pred] = 1
+        signals[preds < -0.1 * std_pred] = -1
+
+        sig_series = pd.Series(signals)
+        trades = (sig_series.diff().fillna(sig_series) != 0) & (sig_series != 0)
 
         strategy_returns = (
-            y_test.reset_index(drop=True)
-            * signals
-        )
+            y_test.reset_index(drop=True) * sig_series
+        ) - (trades.astype(float) * 0.001)
 
         equity_curve = (
             1 + strategy_returns
@@ -104,7 +107,7 @@ def walk_forward_validation(data, features):
                 strategy_returns.std()
                 + 1e-8
             )
-        )
+        ) * np.sqrt(252)
 
         returns_list.append(
             total_return

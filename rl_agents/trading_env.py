@@ -3,6 +3,7 @@
 import gymnasium as gym
 from gymnasium import spaces
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 
 class TradingEnv(gym.Env):
@@ -12,7 +13,7 @@ class TradingEnv(gym.Env):
 
         self.data = data.reset_index(drop=True)
 
-        self.initial_balance = 10000
+        self.initial_balance = 10000.0
         self.transaction_cost = 0.001
         self.slippage = 0.0005
         self.position_size = 0.95
@@ -44,9 +45,16 @@ class TradingEnv(gym.Env):
             "Volume_MA"
         ]
 
+        # Extract NumPy arrays for high-performance indexing
+        raw_features = self.data[self.feature_columns].values.astype(np.float32)
+        scaler = StandardScaler()
+        self.features_np = scaler.fit_transform(raw_features).astype(np.float32)
+        self.prices_np = self.data["Close"].values.astype(np.float32)
+        self.num_steps = len(self.data)
+
         self.observation_space = spaces.Box(
-            low=-np.inf,
-            high=np.inf,
+            low=-10.0,
+            high=10.0,
             shape=(24,),
             dtype=np.float32
         )
@@ -58,11 +66,11 @@ class TradingEnv(gym.Env):
 
         self.current_step = 0
 
-        self.cash = self.initial_balance
+        self.cash = float(self.initial_balance)
         self.shares = 0.0
 
-        self.portfolio_value = self.initial_balance
-        self.prev_portfolio_value = self.initial_balance
+        self.portfolio_value = float(self.initial_balance)
+        self.prev_portfolio_value = float(self.initial_balance)
 
         self.position = 0
         self.entry_price = 0.0
@@ -70,32 +78,23 @@ class TradingEnv(gym.Env):
         return self._next_observation(), {}
 
     def _next_observation(self):
+        if self.current_step >= self.num_steps:
+            return np.zeros(24, dtype=np.float32)
 
-        row = self.data.iloc[self.current_step]
+        feat = self.features_np[self.current_step]
+        cash_ratio = float(self.cash / (self.portfolio_value + 1e-8))
+        return_ratio = float((self.portfolio_value - self.initial_balance) / self.initial_balance)
+        pos_ratio = float(self.position)
 
-        obs = [row[col] for col in self.feature_columns]
-
-        obs.extend([
-            self.cash,
-            self.shares,
-            self.portfolio_value
-        ])
-
-        return np.array(obs, dtype=np.float32)
+        obs = np.empty(24, dtype=np.float32)
+        obs[:21] = feat
+        obs[21] = pos_ratio
+        obs[22] = cash_ratio
+        obs[23] = return_ratio
+        return obs
 
     def step(self, action):
-
-        current_price = float(
-            self.data["Close"].iloc[self.current_step]
-        )
-
-        if self.current_step > 0:
-            previous_price = float(
-                self.data["Close"].iloc[self.current_step - 1]
-            )
-        else:
-            previous_price = current_price
-
+        current_price = float(self.prices_np[self.current_step])
         trade_cost = 0.0
 
         # BUY
@@ -148,28 +147,23 @@ class TradingEnv(gym.Env):
             self.position = 0
             self.entry_price = 0.0
 
-        # Portfolio value
+        # Update Portfolio value
         self.portfolio_value = (
             self.cash +
-            self.shares * current_price
+            (self.shares * current_price)
         )
 
-        # Reward = portfolio growth
-        reward = (
-            self.portfolio_value -
-            self.prev_portfolio_value
+        step_return = (
+            self.portfolio_value - self.prev_portfolio_value
         ) / (
             self.prev_portfolio_value + 1e-8
         )
 
-        # Small penalty for trading
-        reward -= (
-            trade_cost /
-            (self.prev_portfolio_value + 1e-8)
-        )
+        cost_penalty = trade_cost / (self.prev_portfolio_value + 1e-8)
+        reward = step_return - cost_penalty
 
         reward = float(
-            np.clip(reward, -1, 1)
+            np.clip(reward, -1.0, 1.0)
         )
 
         self.prev_portfolio_value = (
@@ -179,18 +173,12 @@ class TradingEnv(gym.Env):
         self.current_step += 1
 
         terminated = (
-            self.current_step >= len(self.data) - 1
+            self.current_step >= self.num_steps - 1
         )
 
         truncated = False
 
-        if terminated:
-            obs = np.zeros(
-                self.observation_space.shape,
-                dtype=np.float32
-            )
-        else:
-            obs = self._next_observation()
+        obs = self._next_observation()
 
         info = {
             "cash": self.cash,
