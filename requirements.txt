@@ -5,6 +5,8 @@ numpy
 # Visualization
 matplotlib
 seaborn
+plotly
+streamlit
 
 # Machine Learning
 scikit-learn

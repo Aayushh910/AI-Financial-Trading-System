@@ -13,3 +13,12 @@ outputs/predictions/*
 
 data/cache/*
 ppo_trading_agent.zip
+
+# Environment & Secrets
+.env
+.env.*
+.streamlit/secrets.toml
+
+# IDE & Editor files
+.vscode/
+.idea/
